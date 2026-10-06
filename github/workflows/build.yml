@@ -1,0 +1,144 @@
+name: Build SAFINA APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build SAFINA
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-37.0"
+          sdkmanager "build-tools;36.0.0"
+
+      - name: Prepare SAFINA project
+        shell: bash
+        run: |
+          set -e
+
+          echo "Checking Android project structure..."
+
+          if [ -f "app/build.gradle.kts" ]; then
+            echo "Android structure already exists."
+          else
+            echo "Flattened GitHub upload detected."
+            echo "Rebuilding Android project structure..."
+
+            mkdir -p app/src/main/java/id/safina/app
+            mkdir -p app/src/main/res/values
+            mkdir -p app/src/main/res/raw
+            mkdir -p app/src/main/res/drawable
+            mkdir -p app/src/main/res/mipmap-hdpi
+
+            # MainActivity
+            if [ -f "MainActivity.java" ]; then
+              mv "MainActivity.java" \
+                "app/src/main/java/id/safina/app/MainActivity.java"
+            fi
+
+            # Exposure service
+            if [ -f "ExposureMonitorService.java" ]; then
+              mv "ExposureMonitorService.java" \
+                "app/src/main/java/id/safina/app/ExposureMonitorService.java"
+            fi
+
+            # Manifest
+            if [ -f "AndroidManifest.xml" ]; then
+              mv "AndroidManifest.xml" \
+                "app/src/main/AndroidManifest.xml"
+            fi
+
+            # Resource XML
+            for file in strings.xml themes.xml colors.xml; do
+              if [ -f "$file" ]; then
+                mv "$file" "app/src/main/res/values/$file"
+              fi
+            done
+
+            # Education videos
+            for file in edu1.mp4 edu2.mp4 edu3.mp4 edu4.mp4 edu5.mp4 edu6.mp4; do
+              if [ -f "$file" ]; then
+                mv "$file" "app/src/main/res/raw/$file"
+              fi
+            done
+
+            # Detect Gradle files by their contents.
+            if [ -f "build.gradle.kts" ]; then
+              if grep -q 'com.android.application' "build.gradle.kts"; then
+                mv "build.gradle.kts" "app/build.gradle.kts"
+              fi
+            fi
+
+            # Detect settings file.
+            for file in settings.gradle.kts pengaturan.gradle.kts; do
+              if [ -f "$file" ]; then
+                if grep -q 'rootProject.name' "$file"; then
+                  mv "$file" "settings.gradle.kts"
+                  break
+                fi
+              fi
+            done
+
+            echo "Project structure prepared."
+          fi
+
+      - name: Verify SAFINA structure
+        shell: bash
+        run: |
+          set -e
+
+          echo "===== SAFINA STRUCTURE ====="
+          find app -maxdepth 8 -type f | sort
+
+          test -f "settings.gradle.kts"
+          test -f "build.gradle.kts"
+          test -f "app/build.gradle.kts"
+          test -f "app/src/main/AndroidManifest.xml"
+          test -f "app/src/main/java/id/safina/app/MainActivity.java"
+
+          echo "===== STRUCTURE OK ====="
+
+      - name: Build SAFINA
+        run: |
+          gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          test -f "app/build/outputs/apk/debug/app-debug.apk"
+          ls -lh "app/build/outputs/apk/debug/app-debug.apk"
+
+      - name: Upload SAFINA APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SAFINA-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
