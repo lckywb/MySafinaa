@@ -1,0 +1,14 @@
+<resources>
+    <color name="navy">#08192D</color>
+    <color name="navy2">#0E2945</color>
+    <color name="teal">#2AA7A1</color>
+    <color name="teal_light">#DDF5F2</color>
+    <color name="off_white">#F7F9FC</color>
+    <color name="text_dark">#172334</color>
+    <color name="muted">#667085</color>
+    <color name="white">#FFFFFF</color>
+    <color name="green">#1B8A5A</color>
+    <color name="yellow">#A66B00</color>
+    <color name="orange">#C75C00</color>
+    <color name="red">#B42318</color>
+</resources>
